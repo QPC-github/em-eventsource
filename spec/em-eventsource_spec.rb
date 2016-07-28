@@ -7,9 +7,9 @@ require "minitest-spec-context"
 
 describe EventMachine::EventSource do
 
-  def start_source(url="http://example.com/streaming", query={}, headers={})
+  def start_source(url="http://example.com/streaming", query={}, headers={}, method=:get)
     EM.run do
-      source = EventMachine::EventSource.new(url, query, headers)
+      source = EventMachine::EventSource.new(url, query, headers, method)
       source.start
       req = source.instance_variable_get "@req"
       yield source, req if block_given?
@@ -43,6 +43,13 @@ describe EventMachine::EventSource do
                                    :head  => {"DNT" => 1,
                                               "Cache-Control" => "no-cache",
                                               "Accept" => "text/event-stream"} })
+      EM.stop
+    end
+  end
+
+  it "connect to the good server with specified method" do
+    start_source "http://example.net/streaming", {}, {}, :post do |source, req|
+      req.method.must_equal :post
       EM.stop
     end
   end
@@ -221,6 +228,10 @@ describe EventMachine::EventSource do
 
   it "doesn't fail when trying to close not yet started source" do
     EventMachine::EventSource.new("").close
+  end
+
+  it "raises ArgumentError if invalid HTTP method given" do
+    proc { EventMachine::EventSource.new("http://example.com/streaming", {}, {}, :invalid) }.must_raise ArgumentError
   end
 
 end
