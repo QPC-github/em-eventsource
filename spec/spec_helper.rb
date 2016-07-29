@@ -2,7 +2,7 @@ require "em-eventsource"
 
 module EventMachine
   class MockHttpRequest
-    attr_reader :url, :get_args, :middlewares, :opts, :method
+    attr_reader :url, :req_args, :middlewares, :opts, :method
 
     def initialize(url, opts={})
       @url = url
@@ -12,15 +12,16 @@ module EventMachine
       @headers = []
       @middlewares = []
       @opts = opts
-      @method = :get
     end
 
     def get(*args)
-      @get_args = args
+      @req_args = args
+      @method = :get
       self
     end
 
     def post(*args)
+      @req_args = args
       @method = :post
       self
     end
