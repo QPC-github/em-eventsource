@@ -29,14 +29,20 @@ module EventMachine
     # The connection is not open, and the user agent is not trying to reconnect. Either there was a fatal error or the close() method was invoked.
     CLOSED     = 2
 
+    HTTP_METHODS = EM::HTTPMethods.public_instance_methods
+
     # Create a new stream
     #
     # url - the url as string
     # query - the query string as hash
     # headers - the headers for the request as hash
-    def initialize(url, query={}, headers={})
+    # method - the HTTP method to use for the request (see EM::HTTPMethods)
+    def initialize(url, query={}, headers={}, method=:get)
+      raise ArgumentError, "acceptable methods: #{HTTP_METHODS.map { |s| ":#{s}" }.join(', ')}" unless HTTP_METHODS.include?(method)
+
       @url = url
       @query = query
+      @method = method
       @headers = headers
       @ready_state = CLOSED
 
@@ -185,8 +191,7 @@ module EventMachine
       }
       headers = @headers.merge({'Cache-Control' => 'no-cache', 'Accept' => 'text/event-stream'})
       headers.merge!({'Last-Event-Id' => @last_event_id }) if not @last_event_id.nil?
-      [conn, conn.get({ :query => @query,
-                        :head  => headers})]
+      [conn, conn.public_send(@method, { :query => @query, :head  => headers})]
     end
   end
 end

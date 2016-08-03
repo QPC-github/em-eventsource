@@ -7,9 +7,9 @@ require "minitest-spec-context"
 
 describe EventMachine::EventSource do
 
-  def start_source(url="http://example.com/streaming", query={}, headers={})
+  def start_source(url="http://example.com/streaming", query={}, headers={}, method=:get)
     EM.run do
-      source = EventMachine::EventSource.new(url, query, headers)
+      source = EventMachine::EventSource.new(url, query, headers, method)
       source.start
       req = source.instance_variable_get "@req"
       yield source, req if block_given?
@@ -29,7 +29,7 @@ describe EventMachine::EventSource do
       source.url.must_equal "http://example.com/streaming"
       req.url.must_equal "http://example.com/streaming"
       req.opts[:inactivity_timeout].must_equal 60
-      req.get_args[0].must_equal({ :query => {},
+      req.req_args[0].must_equal({ :query => {},
                                    :head  => {"Cache-Control" => "no-cache",
                                               "Accept" => "text/event-stream"} })
       EM.stop
@@ -39,10 +39,17 @@ describe EventMachine::EventSource do
   it "connect to the good server with query and headers" do
     start_source "http://example.net/streaming", {:chuck => "norris"}, {"DNT" => 1} do |source, req|
       req.url.must_equal "http://example.net/streaming"
-      req.get_args[0].must_equal({ :query => {:chuck => "norris"},
+      req.req_args[0].must_equal({ :query => {:chuck => "norris"},
                                    :head  => {"DNT" => 1,
                                               "Cache-Control" => "no-cache",
                                               "Accept" => "text/event-stream"} })
+      EM.stop
+    end
+  end
+
+  it "connect to the good server with specified method" do
+    start_source "http://example.net/streaming", {}, {}, :post do |source, req|
+      req.method.must_equal :post
       EM.stop
     end
   end
@@ -150,7 +157,7 @@ describe EventMachine::EventSource do
               req2 = source.instance_variable_get "@req"
               refute_same(req2, req)
               source.last_event_id.must_equal "roger"
-              req2.get_args[0].must_equal({ :head => { "Last-Event-Id" => "roger",
+              req2.req_args[0].must_equal({ :head => { "Last-Event-Id" => "roger",
                                                        "Accept" => "text/event-stream",
                                                        "Cache-Control" => "no-cache" },
                                             :query => {} })
@@ -171,7 +178,7 @@ describe EventMachine::EventSource do
               req2 = source.instance_variable_get "@req"
               refute_same(req2, req)
               source.last_event_id.must_equal "roger"
-              req2.get_args[0].must_equal({ :head => { "Last-Event-Id" => "roger",
+              req2.req_args[0].must_equal({ :head => { "Last-Event-Id" => "roger",
                                                        "Accept" => "text/event-stream",
                                                        "Cache-Control" => "no-cache" },
                                             :query => {} })
@@ -219,8 +226,22 @@ describe EventMachine::EventSource do
     end
   end
 
+  it "defaults to HTTP GET" do
+    EM.run do
+      source = EventMachine::EventSource.new("http://example.com/streaming")
+      source.start
+      req = source.instance_variable_get "@req"
+      req.method.must_equal :get
+      EM.stop
+    end
+  end
+
   it "doesn't fail when trying to close not yet started source" do
     EventMachine::EventSource.new("").close
+  end
+
+  it "raises ArgumentError if invalid HTTP method given" do
+    proc { EventMachine::EventSource.new("http://example.com/streaming", {}, {}, :invalid) }.must_raise ArgumentError
   end
 
 end
